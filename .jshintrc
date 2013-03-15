@@ -1,0 +1,16 @@
+{
+  "predef": [
+    "App"
+  ],
+  "eqeqeq": false,
+  "eqnull": true,
+  "sub": true,
+  "devel": false,
+  "browser": true,
+  "smarttabs": false,
+  "laxbreak": true,
+  "laxcomma": true,
+  "jquery": true,
+  "loopfunc": true,
+  "trailing": true
+}

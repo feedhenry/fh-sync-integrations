@@ -13,19 +13,25 @@ module.exports = function(grunt) {
     jshint: {
       all: ['Gruntfile.js',
         '<%= meta.src %>',
-        '<%= meta.specs %>'],
+        '<%= meta.specs %>',
+        '<%= meta.tests %>'],
       options: {
         jshintrc: '.jshintrc'
       }
     },
     jasmine: {
-      options: {
-        src: '<%= meta.src %>',
-        specs: '<%= meta.specs %>',
-        helpers: '<%= meta.helpers %>',
-        junit: {
-          path: 'test-report',
-          consolidate: true
+      backbone_fhsync: {
+        src: './client/backbone/src/**/*.js',
+        options: {
+          vendor: ['./client/backbone/components/underscore/underscore-min.js',
+            './client/backbone/components/backbone/backbone-min.js',
+            './client/backbone/components/fh-js-sdk/dist/feedhenry-latest.min.js'],
+          specs: './client/backbone/test/**/*.spec.js',
+          helpers: './client/backbone/test/jasmine.async.helper.js',
+          junit: {
+            path: 'test-report',
+            consolidate: true
+          }
         }
       }
     },

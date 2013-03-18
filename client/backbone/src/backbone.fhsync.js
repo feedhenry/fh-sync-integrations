@@ -17,11 +17,10 @@ function guid() {
   return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
 }
 
-var FHBackboneSync = function(datasetId, syncOptions) {
+var FHBackboneSync = function(datasetId) {
   this.datasetId = datasetId;
   //this.data = null;
   this.inited = false;
-  this.syncOptions = syncOptions;
   _.bindAll(this);
 };
 
@@ -32,10 +31,21 @@ _.extend(FHBackboneSync.prototype, {
     var self = this;
     self.datasetHash = null;
 
-    sync.init(this.syncOptions);
+    $fh.sync.init({
+      "sync_frequency": 5,
+      "auto_sync_local_updates": true,
+      "notify_client_storage_failed": true,
+      "notify_sync_started": true,
+      "notify_sync_complete": true,
+      "notify_offline_update": true,
+      "notify_collision_detected": true,
+      "notify_update_failed": true,
+      "notify_update_applied": true,
+      "notify_delta_received": true
+    });
 
     // Provide handler function for receiving notifications from sync service - e.g. data changed
-    sync.notify(function (notification) {
+    $fh.sync.notify(function (notification) {
       if( 'sync_complete' == notification.code ) {
         // We are interested in sync_complete notifications as there may be changes to the dataset
         if( self.datasetHash != notification.uid ) {
@@ -51,58 +61,49 @@ _.extend(FHBackboneSync.prototype, {
     });
 
     // Get the Sync service to manage the dataset called "myShoppingList"
-    sync.manage(self.datasetId, {});
+    $fh.sync.manage(self.datasetId, {});
   },
 
   create: function(model, cb) {
-    debugger;
   },
 
   update: function(model, cb) {
     var self = this;
     var uid = model.get('id');
     var syncTarget = model.collection || model;
-    syncTarget.trigger('sync_started');
 
-    sync.read(self.datasetId, uid, function(res) {
+    $fh.sync.read(self.datasetId, uid, function(res) {
       res.data = model.toJSON();
 
       // Send the update to the sync service
-      sync.update(self.datasetId, uid, res.data, function(res2) {
-        syncTarget.trigger('sync_ok');
+      $fh.sync.update(self.datasetId, uid, res.data, function(res2) {
         cb(null, res2.post);
       },
       function(code, msg) {
         var err = 'Unable to update row : (' + code + ') ' + msg;
-        alert(err);
         syncTarget.trigger('sync_error', err);
         cb(err);
       });
     }, function(code, msg) {
       var err = 'Unable to read row for updating : (' + code + ') ' + msg;
-      alert(err);
-      syncTarget.trigger('sync_error', err);
       cb(err);
     });
   },
 
   find: function(modelToFind, cb) {
-    debugger;
   },
 
   // Return array of all models currently in memory
   findAll: function(cb) {
-    sync.list(this.datasetId, function (res) {
+    $fh.sync.list(this.datasetId, function (res) {
       cb(null, _.map(res, function (item) { return item.data; }));
     }, function (code, msg) {
       var err = 'Unable to findAll items : (' + code + ') ' + msg;
-      alert(err);
       cb(err);
     });
   },
 
   destroy: function(model, cb) {
-    debugger;
   }
 });
 

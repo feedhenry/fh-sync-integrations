@@ -1,4 +1,5 @@
 client/backbone/components/
+client/backbone/bower_components/
 test-report
 .DS_Store
 node_modules

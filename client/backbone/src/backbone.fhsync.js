@@ -5,122 +5,140 @@
  * @author david.martin@feedhenry.com
  */
 
-// Generate four random hex digits (for GUIDs).
-
-function S4() {
-  return (((1 + Math.random()) * 0x10000) | 0).toString(16).substring(1);
-}
-
-// Generate a pseudo-GUID by concatenating random hexadecimal.
-
-function guid() {
-  return (S4() + S4() + "-" + S4() + "-" + S4() + "-" + S4() + "-" + S4() + S4() + S4());
-}
-
-var FHBackboneSync = function(datasetId) {
-  this.datasetId = datasetId;
-  //this.data = null;
-  this.inited = false;
-  _.bindAll(this);
-};
-
-_.extend(FHBackboneSync.prototype, Backbone.Events);
-
-_.extend(FHBackboneSync.prototype, {
-  init: function(model, cb) {
-    var self = this;
-    self.datasetHash = null;
-
-    $fh.sync.init({
-      "sync_frequency": 5,
-      "auto_sync_local_updates": true,
-      "notify_client_storage_failed": true,
-      "notify_sync_started": true,
-      "notify_sync_complete": true,
-      "notify_offline_update": true,
-      "notify_collision_detected": true,
-      "notify_update_failed": true,
-      "notify_update_applied": true,
-      "notify_delta_received": true
+(function (root, factory) {
+  if (typeof exports === 'object' && typeof require === 'function') {
+    module.exports = factory(require("backbone"), require("underscore"));
+  } else if (typeof define === "function" && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(["backbone", "underscore"], function(Backbone, _) {
+      // Use global variables if the locals are undefined.
+      return factory(Backbone || root.Backbone, _ || root._);
     });
+  } else {
+    factory(Backbone, _);
+  }
+}(this, function(Backbone, _){
 
-    // Provide handler function for receiving notifications from sync service - e.g. data changed
-    $fh.sync.notify(function (notification) {
-      if( 'sync_complete' == notification.code ) {
-        // We are interested in sync_complete notifications as there may be changes to the dataset
-        if( self.datasetHash != notification.uid ) {
-          // The dataset hash received in the uid parameter is different to the one we have stored.
-          // This means that there has been a change in the dataset, so we should invoke the list operation.
-          self.datasetHash = notification.uid;
-          if (!self.inited) {
-            self.inited = true;
-            cb(null);
-          }
-        }
+  //only call init once
+  $fh.sync.init({notify_delta_received: true});
+
+  var collectionMap = {};
+
+  $fh.sync.notify(function(notification){
+    //we need to update local collections if there is deltas received
+    if(notification.code === "delta_received"){
+      var datasetId = notification.dataset_id;
+      var collection = collectionMap[datasetId];
+      if(collection){
+        $fh.sync.doList(datasetId, function(data){
+          var records = _.map(data, function(item){
+            return item.data;
+          });
+          collection.set(records);
+        });
       }
-    });
+    }
+  });
 
-    // Get the Sync service to manage the dataset called "myShoppingList"
-    $fh.sync.manage(self.datasetId, {});
-  },
+  Backbone.FHSync = function(datasetId, collection, syncOptions, queryParams, metaData) {
+    this.datasetId = datasetId;
+    this.collection = collection;
+    _.bindAll(this, 'init', 'create', 'update', 'find', 'findAll', 'destroy');
+    collectionMap[datasetId] = collection;
+    this.init(syncOptions, queryParams, metaData);
+  };
 
-  create: function(model, cb) {
-  },
+  _.extend(Backbone.FHSync.prototype, Backbone.Events);
 
-  update: function(model, cb) {
-    var self = this;
-    var uid = model.get('id');
-    var syncTarget = model.collection || model;
-
-    $fh.sync.read(self.datasetId, uid, function(res) {
-      res.data = model.toJSON();
-
-      // Send the update to the sync service
-      $fh.sync.update(self.datasetId, uid, res.data, function(res2) {
-        cb(null, res2.post);
-      },
-      function(code, msg) {
-        var err = 'Unable to update row : (' + code + ') ' + msg;
-        syncTarget.trigger('sync_error', err);
-        cb(err);
+  _.extend(Backbone.FHSync.prototype, {
+    init: function(syncOptions, queryParams, metaData) {
+      var self = this;
+      var opts = _.extend(syncOptions || {}, {
+        notify_delta_received: true
       });
-    }, function(code, msg) {
-      var err = 'Unable to read row for updating : (' + code + ') ' + msg;
-      cb(err);
-    });
-  },
+      // Get the Sync service to manage the dataset
+      $fh.sync.manage(self.datasetId, queryParams, metaData);
+    },
 
-  find: function(modelToFind, cb) {
-  },
+    create: function(model, cb) {
+      var self = this;
+      $fh.sync.doCreate(self.datasetId, model.toJSON(), function(res){
+        return cb(null, res.post);
+      }, function(code, msg){
+        var err = 'Failed to create model : (' + code + ')' + JSON.stringify(model.toJSON());
+        self.collection.trigger('sync_error', err);
+        return cb(err);
+      });
+    },
 
-  // Return array of all models currently in memory
-  findAll: function(cb) {
-    $fh.sync.list(this.datasetId, function (res) {
-      cb(null, _.map(res, function (item) { return item.data; }));
-    }, function (code, msg) {
-      var err = 'Unable to findAll items : (' + code + ') ' + msg;
-      cb(err);
-    });
-  },
+    update: function(model, cb) {
+      var self = this;
+      var uid = model.id.toString();
 
-  destroy: function(model, cb) {
-  }
-});
+      $fh.sync.doUpdate(self.datasetId, uid, model.toJSON(), function(res){
+        return cb(null, res.post);
+      }, function(code, msg){
+        var err = 'Unable to update row : (' + code + ') ' + msg;
+        self.collection.trigger('sync_error', err);
+        return cb(err);
+      });
+    },
 
-FHBackboneSyncFn = function(method, model, options) {
-  if (!model.store && !model.collection) {
-    $fh.logger.debug("Trying to action a model that's not part of a store, returning.");
-    return;
-  }
+    find: function(modelToFind, cb) {
+      var self = this;
+      var uid = modelToFind.id.toString();
+      $fh.sync.doRead(self.datasetId, uid, function(res){
+        return cb(null, res.data);
+      }, function(code, msg){
+        var err = 'Failed to read model: (' + code + ')' + modelToFind.toJSON();
+        self.collection.trigger('sync_error', err);
+        return cb(err);
+      });
+    },
 
-  var store = model.store || model.collection.store;
+    findAll: function(cb){
+      var self = this;
+      $fh.sync.doList(self.datasetId, function(res){
+        var records = _.map(res, function(item){
+          return item.data;
+        });
+        return cb(null, records);
+      }, function(code, msg){
+        var err = 'Failed to list models: (' + code + ')';
+        self.collection.trigger('sync_error', err);
+        return cb(err);
+      });
+    },
 
-  function storeCb(err, resp) {
-    if (err || resp == null) return options.error("Record not found");
-    return options.success(resp);
-  }
+    destroy: function(model, cb) {
+      var self = this;
+      var uid = model.id.toString();
+      $fh.sync.doDelete(self.datasetId, uid, function(res){
+        return cb(null, null);
+      }, function(code, msg){
+        var err = 'Failed to delete model: (' + code + ')' + model.toJSON();
+        self.collection.trigger('sync_error', err);
+        return cb(err);
+      });
+    }
+  });
 
-  function routeMethod() {
+  FHBackboneSyncFn = function(method, model, options) {
+
+    function storeCb(err, resp) {
+      if(err && options.error){
+        return options.error(err);
+      }
+      if(resp == null && options.error){
+        return options.error('Record not found');
+      }
+      if(options.success){
+        return options.success(resp);
+      }
+    }
+
+    var store = model.syncStore || model.collection.syncStore;
+
     switch (method) {
       case "read":
         return model.id ? store.find(model, storeCb) : store.findAll(storeCb);
@@ -131,16 +149,27 @@ FHBackboneSyncFn = function(method, model, options) {
       case "delete":
         return store.destroy(model, storeCb);
     }
-  }
 
-  // if we don't have data yet, initialise it before routing the method
-  if (!store.inited) {
-    store.init(model, function(err) {
-      if (err) return options.error(err);
-
-      return routeMethod();
-    });
     return;
-  }
-  return routeMethod();
-};
+  };
+
+  Backbone.ajaxSync = Backbone.ajax;
+
+  Backbone.getSyncMethod = function(model) {
+    if(model.syncStore || (model.collection && model.collection.syncStore)) {
+      return FHBackboneSyncFn;
+    }
+
+    return Backbone.ajaxSync;
+  };
+
+  // Override 'Backbone.sync' to default to localSync,
+  // the original 'Backbone.sync' is still available in 'Backbone.ajaxSync'
+  Backbone.sync = function(method, model, options) {
+    return Backbone.getSyncMethod(model).apply(this, [method, model, options]);
+  };
+
+  return Backbone.FHSync;
+}));
+
+

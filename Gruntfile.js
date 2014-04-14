@@ -5,8 +5,8 @@ module.exports = function(grunt) {
   grunt.initConfig({
     meta: {
       pkg: grunt.file.readJSON('package.json'),
-      src: ['client/**/*.js', 'cloud/**/*.js'],
-      specs: 'client/**/*.spec.js', // client
+      src: ['client/backbone/src/*.js', 'cloud/**/*.js'],
+      specs: 'client/backbone/test/*.spec.js', // client
       tests: 'cloud/**/*.test.js', // cloud
       helpers: ''
     },
@@ -23,9 +23,9 @@ module.exports = function(grunt) {
       backbone_fhsync: {
         src: './client/backbone/src/**/*.js',
         options: {
-          vendor: ['./client/backbone/components/underscore/underscore-min.js',
-            './client/backbone/components/backbone/backbone-min.js',
-            './client/backbone/components/fh-js-sdk/dist/feedhenry-latest.min.js'],
+          vendor: ['./client/backbone/bower_components/underscore/underscore.js',
+            './client/backbone/bower_components/backbone/backbone.js',
+            './client/backbone/bower_components/fh-js-sdk/dist/feedhenry-forms.min.js'],
           specs: './client/backbone/test/**/*.spec.js',
           helpers: './client/backbone/test/jasmine.async.helper.js',
           junit: {

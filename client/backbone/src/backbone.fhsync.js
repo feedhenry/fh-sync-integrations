@@ -57,7 +57,7 @@
         notify_delta_received: true
       });
       // Get the Sync service to manage the dataset
-      $fh.sync.manage(self.datasetId, queryParams, metaData);
+      $fh.sync.manage(self.datasetId, syncOptions, queryParams, metaData);
     },
 
     create: function(model, cb) {

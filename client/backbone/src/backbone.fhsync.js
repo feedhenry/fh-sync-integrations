@@ -30,12 +30,7 @@
       var datasetId = notification.dataset_id;
       var collection = collectionMap[datasetId];
       if(collection){
-        $fh.sync.doList(datasetId, function(data){
-          var records = _.map(data, function(item){
-            return item.data;
-          });
-          collection.set(records);
-        });
+        collection.fetch();
       }
     }
   });

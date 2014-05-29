@@ -19,9 +19,6 @@
   }
 }(this, function(Backbone, _){
 
-  //only call init once
-  $fh.sync.init({notify_delta_received: true});
-
   var collectionMap = {};
 
   $fh.sync.notify(function(notification){
@@ -51,6 +48,7 @@
       var opts = _.extend(syncOptions || {}, {
         notify_delta_received: true
       });
+      $fh.sync.init(opts);
       // Get the Sync service to manage the dataset
       $fh.sync.manage(self.datasetId, syncOptions, queryParams, metaData);
     },

@@ -17,7 +17,7 @@
     "sencha"
   ],
   "author": "david.martin@feedhenry.com",
-  "license": "BSD",
+  "license": "Copyright (c) 2014 FeedHenry Ltd, All Rights Reserved.",
   "readmeFilename": "README.md",
   "devDependencies": {
     "grunt": "~0.4.1",
